@@ -16,6 +16,10 @@
         <Style TargetType="TextBlock">
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
+        <!-- CheckBox text does not inherit the window's light foreground; without this it renders black. -->
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#EDF1F7" />
+        </Style>
     </Window.Resources>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="22">
