@@ -19,11 +19,15 @@ enum class InputSource(val protocolName: String) {
     TOUCH("touch"),
 }
 
-/** One state to send to Windows. [controllerBattery] is a percentage, or null when unknown or not a controller. */
+/**
+ * One state to send to Windows. [controllerBattery] is a percentage, or null when unknown or not a controller.
+ * [phoneInputMeanMs] is Android's average controller event delivery delay, or null when not measured.
+ */
 data class InputSnapshot(
     val state: PadState,
     val source: String,
     val deviceName: String,
     val capturedNs: Long,
     val controllerBattery: Int? = null,
+    val phoneInputMeanMs: Double? = null,
 )

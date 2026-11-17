@@ -19,6 +19,8 @@ data class ForwardingSnapshot(
     val deviceName: String,
     /** Percent 0..100, or null when there is no controller or Android does not report a level. */
     val controllerBattery: Int?,
+    /** Android's average delay handing controller events to the app, in ms; null in touch mode or before input. */
+    val phoneInputMeanMs: Double?,
     val padState: PadState,
     /** True while a connection is being made, is up or is being retried: the Connect button then reads Disconnect. */
     val isBusy: Boolean,

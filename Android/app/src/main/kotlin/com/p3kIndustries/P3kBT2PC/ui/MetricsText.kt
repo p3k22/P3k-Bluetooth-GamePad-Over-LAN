@@ -1,20 +1,33 @@
 package com.p3kIndustries.P3kBT2PC.ui
 
-import com.p3kIndustries.P3kBT2PC.services.InputActivityLog
-import com.p3kIndustries.P3kBT2PC.services.LinkStats
+import com.p3kIndustries.P3kBT2PC.services.ForwardingSnapshot
+import com.p3kIndustries.P3kBT2PC.services.ForwardingStatus
 import java.util.Locale
 
-/** The two-line status text shown under the gamepad. */
-fun formatMetrics(stats: LinkStats, activity: InputActivityLog): String {
-    val counts = String.format(
+/**
+ * The latency lines shown under the gamepad. Controller → PC is estimated as Android's input delay plus half the
+ * network round trip; the controller's own radio time is not measurable from the phone and is left out.
+ */
+fun formatLatency(snapshot: ForwardingSnapshot): String {
+    val stats = snapshot.stats
+    if (snapshot.status != ForwardingStatus.CONNECTED || stats.acknowledged == 0L) {
+        return "Latency: waiting for a connection"
+    }
+    val networkOneWayMs = stats.meanRttMs / 2
+    val phoneInputMs = snapshot.phoneInputMeanMs
+    val summary = if (phoneInputMs == null) {
+        String.format(Locale.US, "Latency phone → PC ≈ %.1f ms", networkOneWayMs)
+    } else {
+        String.format(
+            Locale.US,
+            "Latency controller → PC ≈ %.1f ms  (phone input %.1f ms + network %.1f ms)",
+            phoneInputMs + networkOneWayMs, phoneInputMs, networkOneWayMs,
+        )
+    }
+    val roundTrip = String.format(
         Locale.US,
-        "Sent %,d · acknowledged %,d · control downs %,d · Square/X %,d (raw %,d)",
-        stats.sent, stats.acknowledged, activity.controlDowns, activity.squareDowns, activity.rawSquareDowns,
+        "Network round trip %.1f ms average · %.1f ms p95",
+        stats.meanRttMs, stats.p95RttMs,
     )
-    val timings = String.format(
-        Locale.US,
-        "LAN round trip: mean %.2f ms · p95 %.2f ms | send queue %.2f ms | Windows apply %.0f µs",
-        stats.meanRttMs, stats.p95RttMs, stats.queueMs, stats.applyUs,
-    )
-    return counts + "\n" + timings
+    return summary + "\n" + roundTrip
 }

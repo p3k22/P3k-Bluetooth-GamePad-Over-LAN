@@ -10,7 +10,8 @@ public sealed record InputFrame(
     long SentNs,
     string Source,
     string DeviceName,
-    int? ControllerBattery = null)
+    int? ControllerBattery = null,
+    LatencyReport? Latency = null)
 {
     private const int MaxJsonDepth = 8;
     private const int MaxTextLength = 100;
@@ -52,7 +53,8 @@ public sealed record InputFrame(
             ReadSentNs(root),
             ReadString(root, "source", DefaultSource),
             ReadString(root, "deviceName", DefaultDeviceName),
-            ReadControllerBattery(root));
+            ReadControllerBattery(root),
+            LatencyReport.Read(root));
     }
 
     /// <summary>Controller battery percentage, when the phone knows it; anything outside 0–100 counts as unknown.</summary>

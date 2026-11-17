@@ -20,8 +20,8 @@ android {
         applicationId = "com.p3kIndustries.P3kBT2PC"
         minSdk = 28
         targetSdk = 34
-        versionCode = 4
-        versionName = "2.2"
+        versionCode = 5
+        versionName = "2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

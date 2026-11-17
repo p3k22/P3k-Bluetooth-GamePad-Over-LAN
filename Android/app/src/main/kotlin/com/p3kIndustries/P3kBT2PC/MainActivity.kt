@@ -22,7 +22,7 @@ import com.p3kIndustries.P3kBT2PC.services.ControllerAccessibilityService
 import com.p3kIndustries.P3kBT2PC.services.ForwardingSnapshot
 import com.p3kIndustries.P3kBT2PC.services.Forwarder
 import com.p3kIndustries.P3kBT2PC.ui.MainScreen
-import com.p3kIndustries.P3kBT2PC.ui.formatMetrics
+import com.p3kIndustries.P3kBT2PC.ui.formatLatency
 
 private const val SCREEN_REFRESH_MS = 250L
 private const val FIRST_SDK_WITH_NOTIFICATION_PERMISSION = 33
@@ -106,10 +106,6 @@ class MainActivity : AppCompatActivity(), MainScreen.Listener {
         screen.gamepad.state = forwarder.snapshot().padState
     }
 
-    override fun onResetCountsClicked() {
-        forwarder.inputLog.reset()
-    }
-
     override fun onShareLogClicked() {
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -140,7 +136,7 @@ class MainActivity : AppCompatActivity(), MainScreen.Listener {
     private fun showSnapshot(snapshot: ForwardingSnapshot) {
         showDestinationIfChanged(snapshot)
         screen.showStatus(snapshot)
-        screen.showMetrics(formatMetrics(snapshot.stats, forwarder.inputLog))
+        screen.showMetrics(formatLatency(snapshot))
         screen.showConnectButtonBusy(snapshot.isBusy)
         screen.showSearching(snapshot.isSearching)
     }

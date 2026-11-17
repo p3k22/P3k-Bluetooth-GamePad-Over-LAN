@@ -223,8 +223,23 @@ class Server(private val onEvent: (ServerEvent) -> Unit) {
                 .put("deviceName", snapshot.deviceName)
                 .put("input", JSONObject(snapshot.state.values))
             snapshot.controllerBattery?.let { percent -> frame.put("controllerBattery", percent) }
+            buildLatencyReport(snapshot)?.let { report -> frame.put("latency", report) }
             return frame
         }
+
+        /** The phone's latency measurements, so Windows can show them; null until something has been measured. */
+        private fun buildLatencyReport(snapshot: InputSnapshot): JSONObject? {
+            val report = JSONObject()
+            val linkStats = stats
+            if (linkStats.acknowledged > 0) {
+                report.put("roundTripMeanMs", roundToHundredths(linkStats.meanRttMs))
+                report.put("roundTripP95Ms", roundToHundredths(linkStats.p95RttMs))
+            }
+            snapshot.phoneInputMeanMs?.let { delayMs -> report.put("phoneInputMeanMs", roundToHundredths(delayMs)) }
+            return if (report.length() == 0) null else report
+        }
+
+        private fun roundToHundredths(value: Double) = Math.round(value * 100) / 100.0
 
         private fun writeFrame(output: OutputStream, frame: JSONObject) {
             output.write((frame.toString() + "\n").toByteArray(Charsets.UTF_8))

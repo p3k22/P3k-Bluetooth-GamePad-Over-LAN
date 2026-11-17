@@ -15,6 +15,7 @@ public sealed class MainWindowViewModel
     private string _source = "";
     private string? _error;
     private int? _controllerBattery;
+    private LatencyReport? _latency;
 
     public MainWindowViewModel(UIViewModels views)
     {
@@ -33,6 +34,9 @@ public sealed class MainWindowViewModel
 
     /// <summary>Controller battery percentage reported by the phone, or null when unknown.</summary>
     public int? ControllerBattery => _controllerBattery;
+
+    /// <summary>The phone's latest latency measurements, or null when none have arrived.</summary>
+    public LatencyReport? Latency => _latency;
 
     public void ReportError(string message)
     {
@@ -131,6 +135,7 @@ public sealed class MainWindowViewModel
             _latestValues = frame.Values;
             _source = $"{frame.Source} · {frame.DeviceName}";
             _controllerBattery = frame.ControllerBattery;
+            _latency = frame.Latency ?? _latency;
             _error = null;
         }
     }
@@ -144,6 +149,7 @@ public sealed class MainWindowViewModel
             _latestValues = InputFrame.Neutral();
             _source = "";
             _controllerBattery = null;
+            _latency = null;
         }
     }
 }

@@ -50,6 +50,7 @@ class Forwarder private constructor(context: Context) {
     private val device = Device { next -> accept(next, InputSource.BLUETOOTH) }
     private val inputManager = appContext.getSystemService(Context.INPUT_SERVICE) as InputManager
     private val motionFilter = DuplicateMotionFilter()
+    private val inputDelay = InputDelayStats()
     private val stateListeners = CopyOnWriteArrayList<() -> Unit>()
     private var multicastLock: WifiManager.MulticastLock? = null
     private var padStateObserver: ((PadState) -> Unit)? = null
@@ -116,6 +117,7 @@ class Forwarder private constructor(context: Context) {
         touchMode = touchMode,
         deviceName = if (touchMode) TOUCH_MODE_DEVICE_INFO else device.name,
         controllerBattery = controllerBattery,
+        phoneInputMeanMs = if (touchMode) null else inputDelay.meanMs,
         padState = latest,
         isBusy = server.busy || status == ForwardingStatus.RECONNECTING,
     )
@@ -358,6 +360,7 @@ class Forwarder private constructor(context: Context) {
             deviceName = if (touchMode) TOUCH_SOURCE_NAME else device.name,
             capturedNs = SystemClock.elapsedRealtimeNanos(),
             controllerBattery = if (touchMode) null else controllerBattery,
+            phoneInputMeanMs = if (touchMode) null else inputDelay.meanMs,
         )
     }
 
@@ -365,8 +368,12 @@ class Forwarder private constructor(context: Context) {
 
     /** Returns true when the key belonged to the selected gamepad and was forwarded. */
     fun handleKey(event: KeyEvent): Boolean {
-        if (Device.isController(event.device)) logRawControllerKey(event)
-        if (touchMode || !device.key(event)) return false
+        val isController = Device.isController(event.device)
+        if (isController) logRawControllerKey(event)
+        if (touchMode) return false
+        // Measured before the state change is sent, so the frame carrying this event includes its delay.
+        if (isController) inputDelay.record(event)
+        if (!device.key(event)) return false
         InputTimingLog.key(event)
         return true
     }
@@ -375,6 +382,7 @@ class Forwarder private constructor(context: Context) {
     fun handleMotion(event: MotionEvent): Boolean {
         if (touchMode) return false
         if (motionFilter.isDuplicate(event)) return true
+        if (Device.isController(event.device)) inputDelay.record(event)
         if (!device.motion(event)) return false
         InputTimingLog.motion(event)
         return true

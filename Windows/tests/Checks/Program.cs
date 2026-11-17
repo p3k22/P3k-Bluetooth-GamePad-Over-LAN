@@ -187,6 +187,12 @@ static class Checks
               && InputFrame.Parse("{\"controllerBattery\":140,\"input\":{}}").ControllerBattery is null
               && InputFrame.Parse("{\"input\":{}}").ControllerBattery is null,
             "Controller battery read when valid, unknown when missing or out of range");
+        var latency = InputFrame.Parse(
+            "{\"latency\":{\"roundTripMeanMs\":7,\"roundTripP95Ms\":12,\"phoneInputMeanMs\":4},\"input\":{}}").Latency;
+        Check(latency is { RoundTripP95Ms: 12, ControllerToPcMs: 7.5 }
+              && InputFrame.Parse("{\"latency\":{\"roundTripMeanMs\":-3},\"input\":{}}").Latency is null
+              && InputFrame.Parse("{\"input\":{}}").Latency is null,
+            "Latency report read, controller-to-PC estimated, invalid values ignored");
         CheckThrows<System.IO.InvalidDataException>(
             () => new LineFramer().Add(new byte[LineFramer.MaxLineBytes + 1]),
             "Accepted oversized frame",

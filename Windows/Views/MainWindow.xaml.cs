@@ -64,7 +64,7 @@ public partial class MainWindow : Window
         ShowError(viewModel.Error);
         ShowBattery(stats.Client.Length > 0, viewModel.ControllerBattery);
         SourceInfo.Text = viewModel.Source;
-        Statistics.Text = FormatStatistics(stats);
+        LatencyInfo.Text = FormatLatency(stats.Client.Length > 0, viewModel.Latency);
         if (Environment.TickCount64 % AddressRefreshPeriodMs < AddressRefreshWindowMs || Addresses.Text.Length == 0)
         {
             Addresses.Text = string.Join("\n", NetworkAddresses.GetAll().Select(address => address.ToString()));
@@ -105,11 +105,31 @@ public partial class MainWindow : Window
         ControllerBattery.Foreground = StatusPalette.ForBattery(percent);
     }
 
-    private static string FormatStatistics(ReceiverStats stats)
+    /// <summary>Latency as measured by the phone: the controller-to-PC estimate and the network round trip.</summary>
+    private static string FormatLatency(bool connected, LatencyReport? latency)
     {
-        return $"Received {stats.Packets:N0} frames · {stats.Rate:F1}/s · last {stats.AgeMs:F0} ms ago\n" +
-               $"Button downs {stats.ButtonDowns:N0} · Square/X downs {stats.SquareDowns:N0}\n" +
-               $"Windows parse + gamepad submit: mean {stats.MeanApplyUs:F0} µs · p95 {stats.P95ApplyUs:F0} µs";
+        if (!connected || latency is null)
+        {
+            return "Latency: waiting for the phone";
+        }
+
+        var lines = new List<string>();
+        if (latency.ControllerToPcMs is { } controllerToPcMs)
+        {
+            lines.Add($"Latency controller → PC ≈ {controllerToPcMs:F1} ms  " +
+                      $"(phone input {latency.PhoneInputMeanMs:F1} ms + network {latency.RoundTripMeanMs / 2:F1} ms)");
+        }
+        else if (latency.RoundTripMeanMs is { } roundTripMs)
+        {
+            lines.Add($"Latency phone → PC ≈ {roundTripMs / 2:F1} ms");
+        }
+
+        if (latency.RoundTripMeanMs is { } meanMs)
+        {
+            lines.Add($"Network round trip {meanMs:F1} ms average · {latency.RoundTripP95Ms:F1} ms p95");
+        }
+
+        return lines.Count == 0 ? "Latency: waiting for the phone" : string.Join("\n", lines);
     }
 
     private void Settings_Changed(object sender, RoutedEventArgs eventArgs)
@@ -200,11 +220,6 @@ public partial class MainWindow : Window
         }
 
         return startInfo;
-    }
-
-    private void Reset_Click(object sender, RoutedEventArgs eventArgs)
-    {
-        _viewModel!.Receiver.ResetCounters();
     }
 
     private void SaveLog_Click(object sender, RoutedEventArgs eventArgs)

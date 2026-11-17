@@ -24,7 +24,6 @@ class MainScreen(
 ) {
     interface Listener {
         fun onTouchModeToggled(enabled: Boolean)
-        fun onResetCountsClicked()
         fun onShareLogClicked()
         fun onConnectClicked()
         fun onFindWindowsClicked()
@@ -150,7 +149,6 @@ class MainScreen(
         val row = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
         row.addView(createLabel("P3k Gamepad over LAN", 19f), LinearLayout.LayoutParams(0, dp(40), 1f))
         row.addView(touchModeSwitch)
-        row.addView(createButton("Reset counts") { listener.onResetCountsClicked() })
         row.addView(createButton("Share log") { listener.onShareLogClicked() })
         return row
     }

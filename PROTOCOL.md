@@ -17,6 +17,15 @@ Each frame is a complete state; missing fields are neutral. sequence increases p
 
 controllerBattery is optional: the controller's battery level as an integer 0–100, sent when Android reports it (Android 12+, and only for controllers that report a level). It is omitted when unknown and in touch mode. Windows treats a missing or out-of-range value as unknown; older receivers ignore it.
 
+latency is optional: the phone's own measurements, so Windows can display them.
+~~~json
+"latency":{"roundTripMeanMs":7.03,"roundTripP95Ms":12.1,"phoneInputMeanMs":3.92}
+~~~
+roundTripMeanMs/roundTripP95Ms cover the last 200 acknowledged frames and are omitted until the first ack.
+phoneInputMeanMs is Android's average delay from the kernel timestamp of a controller event to the app receiving it,
+over the last 200 controller events; omitted in touch mode or before the first event. Windows estimates
+controller → PC as phoneInputMeanMs + roundTripMeanMs / 2, and ignores values that are missing, negative or over 10 s.
+
 Axes leftStickX/Y, rightStickX/Y and dpadX/Y are -1..1; X is right-positive, Y down-positive. Triggers l2/r2 are 0..1. Buttons buttonA/B/X/Y, l1/r1, select/start, leftStickButton/rightStickButton, psButton/touchpad are 0 or 1. Windows also accepts aliases l3/r3 and legacy payloads without metadata. NaN, non-numeric fields and oversized lines are rejected. Values are clamped.
 
 Windows acknowledges each v2 input after submitting its native gamepad report:

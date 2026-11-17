@@ -54,7 +54,7 @@
                 </WrapPanel>
             </Border>
 
-            <TextBlock x:Name="Statistics" FontFamily="Consolas" Margin="0,14,0,8" />
+            <TextBlock x:Name="LatencyInfo" FontSize="15" Margin="0,14,0,10" />
             <TextBlock Text="Manual connection addresses (TCP 8080)" FontWeight="SemiBold" />
             <TextBox x:Name="Addresses"
                      IsReadOnly="True"
@@ -69,14 +69,13 @@
                 <Button x:Name="StartButton" Content="Stop receiving" Click="Toggle_Click" />
                 <Button x:Name="FirewallButton" Content="Add firewall exception" Click="Firewall_Click" />
                 <Button Content="Save input log" Click="SaveLog_Click" />
-                <Button Content="Reset counts" Click="Reset_Click" />
                 <CheckBox x:Name="PublicNetwork"
                           Content="Also allow on Public networks"
                           VerticalAlignment="Center" />
             </WrapPanel>
             <TextBlock x:Name="FirewallStatus" Margin="0,10,0,0" Foreground="#AEBBD0" />
             <TextBlock Foreground="#AEBBD0" Margin="0,12,0,0">
-                The phone shows measured round-trip timing. Input is released if the connection stalls for 500 ms;
+                Latency is measured on the phone. Input is released if the connection stalls for 500 ms;
                 the phone reconnects by itself. With its accessibility service on, the phone can be locked.
             </TextBlock>
         </StackPanel>

@@ -28,13 +28,14 @@ Use this on a trusted LAN: discovery and input are not encrypted or authenticate
 
 Button changes are sent immediately over an ordered, bounded queue with TCP_NODELAY. The 50 ms heartbeat repeats the last state; it does **not** delay button events. Every complete state is submitted as one native gamepad report. Input submission runs independently of the WPF refresh timer.
 
-A lost connection or 500 ms without valid input releases and removes the virtual gamepad. Reconnect from the phone afterwards. Queue overflow/stale input on Android disconnects instead of silently dropping button transitions.
+A lost connection or 500 ms without valid input releases and removes the virtual gamepad; the phone reconnects by
+itself. Queue overflow/stale input on Android disconnects instead of silently dropping button transitions.
 
-- Live frame rate, age, button-down and Square/X counts.
-- Windows parse + native gamepad submission time (mean/p95).
-- The phone measures round-trip time using acknowledgements after gamepad submission. **This is not one-way input latency and excludes controller-to-Android and game/display delay.**
-- **Reset counts** starts a fresh count without requiring every button to be released.
-- **Save input log** exports the most recent 10,000 button transitions as a JSON array.- Xbox mapping: Cross→A, Circle→B, Square→X, Triangle→Y. PS/Home may be intercepted by Android.
+- **Latency** is measured on the phone and sent with each frame (see `latency` in PROTOCOL.md). The window shows the
+  controller → PC estimate (Android's input delay plus half the network round trip) and the round trip's average
+  and p95. It excludes the controller's own radio time and game/display delay, which the phone can't measure.
+- **Save input log** exports the most recent 10,000 button transitions as a JSON array.
+- Xbox mapping: Cross→A, Circle→B, Square→X, Triangle→Y. PS/Home may be intercepted by Android.
 
 Rumble, lightbar control and motion sensors are not forwarded.
 

@@ -61,8 +61,8 @@ to Windows in each frame as `controllerBattery`.
 
 ## Diagnostics
 
-- Phone button and Square/X down counts; **Reset counts** starts a fresh check, even with R2 held.
-- Sent/acknowledged frame counts, measured RTT, queue delay and Windows submission time.
+- **Latency** under the gamepad: the controller → PC estimate (Android's input delay plus half the network round
+  trip) and the round trip's average and p95. The same figures are sent to Windows in each frame as `latency`.
 - **Share log** shares up to 2,000 recent connection/button events and current metrics.
 - Live controls highlight received physical input or touchscreen input.
 
@@ -84,6 +84,6 @@ Release builds are signed only when the environment variable `P3K_SIGNING_SETTIN
 the repo holding `storeFile`, `storePassword`, `keyAlias` and `keyPassword`; otherwise `assembleRelease` produces an
 unsigned APK.
 
-The package remains com.p3kIndustries.P3kBT2PC; version 2.2, protocol v2.
+The package remains com.p3kIndustries.P3kBT2PC; version 2.3, protocol v2.
 
 See [PROTOCOL.md](../PROTOCOL.md).
