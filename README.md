@@ -31,7 +31,15 @@ Get both apps from [Releases](../../releases):
    your local subnet.
 5. Leave **Touchscreen mode** off to forward the controller, or turn it on to play with the phone's screen.
 
-Keep the phone app in the foreground while playing.
+### Keep forwarding with the phone locked or in other apps
+
+Turn on **Settings → Accessibility → P3k Gamepad controller capture** (Android 14 or later). Because the app is
+installed from an APK, Android first asks you to open **Settings → Apps → P3k Bluetooth Input Forwarder → ⋮ → Allow
+restricted settings**. With it on, forwarding carries on when you leave the app or lock the phone: the lock screen
+stays on at dim brightness so the controller keeps getting through, and a notification lets you disconnect. The
+service only takes controller input while forwarding; at other times the controller works on the phone as normal.
+
+Without it, keep the phone app in front while playing.
 
 ## Latency
 

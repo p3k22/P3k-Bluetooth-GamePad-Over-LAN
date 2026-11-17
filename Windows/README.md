@@ -5,7 +5,11 @@ Receives a controller from the companion Android app and presents a real virtual
 1. Start the Windows app. It immediately listens on TCP **8080**, on every IPv4 interface.
 2. Open the [Android app](../Android/README.md) on the same LAN. It automatically finds the Windows app; **Find Windows** retries discovery.
 3. Alternatively enter any reachable Windows LAN IP/hostname and TCP port on the phone, then choose **Connect IP**.
-4. Choose **Bluetooth controller** (switch off) or **Touchscreen mode** on the phone. Keep the phone app visible.
+4. Choose **Bluetooth controller** (switch off) or **Touchscreen mode** on the phone. To keep forwarding while the
+   phone is locked or in other apps, enable the phone app's accessibility service (see the Android README).
+
+The large status line is green while a phone is connected and red otherwise. Errors show underneath in red, and the
+controller battery reported by the phone shows in green (50% and over), orange (20–49%) or red (under 20%).
 5. Choose Xbox 360 (default, broad game compatibility) or DualShock 4 output on Windows.
 
 The [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases) must be installed. The app does not install or change drivers.

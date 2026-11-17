@@ -16,6 +16,13 @@
     <string name="connected_devices">Connected Devices:</string>
     <string name="input_stream">%1$s\n%2$s</string>
 
+    <string name="controller_accessibility_label">P3k Gamepad controller capture</string>
+    <string name="controller_accessibility_description">Lets P3k Gamepad over LAN receive your game controller\'s buttons and sticks while the phone is locked or another app is open, and forward them to your PC. It reads only game controller input; touch, keyboard and other input are left alone.</string>
+
+    <string name="forwarding_channel_name">Forwarding to Windows</string>
+    <string name="forwarding_to">Forwarding to %1$s</string>
+    <string name="forwarding_disconnect">Disconnect</string>
+
     <string name="action_settings">Settings</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">First Fragment</string>

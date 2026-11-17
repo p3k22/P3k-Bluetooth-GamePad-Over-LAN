@@ -11,9 +11,11 @@ Windows also broadcasts this announcement every second from each active IPv4 int
 
 ## Input
 ~~~json
-{"type":"input","protocol":2,"sequence":0,"sentNs":123456789,"source":"bluetooth","deviceName":"Wireless Controller","input":{"buttonX":1,"leftStickY":-1,"r2":1}}
+{"type":"input","protocol":2,"sequence":0,"sentNs":123456789,"source":"bluetooth","deviceName":"Wireless Controller","controllerBattery":73,"input":{"buttonX":1,"leftStickY":-1,"r2":1}}
 ~~~
 Each frame is a complete state; missing fields are neutral. sequence increases per connection. sentNs is the phone's elapsedRealtimeNanos clock, recorded immediately before serialisation/write. source is bluetooth or touch.
+
+controllerBattery is optional: the controller's battery level as an integer 0–100, sent when Android reports it (Android 12+, and only for controllers that report a level). It is omitted when unknown and in touch mode. Windows treats a missing or out-of-range value as unknown; older receivers ignore it.
 
 Axes leftStickX/Y, rightStickX/Y and dpadX/Y are -1..1; X is right-positive, Y down-positive. Triggers l2/r2 are 0..1. Buttons buttonA/B/X/Y, l1/r1, select/start, leftStickButton/rightStickButton, psButton/touchpad are 0 or 1. Windows also accepts aliases l3/r3 and legacy payloads without metadata. NaN, non-numeric fields and oversized lines are rejected. Values are clamped.
 

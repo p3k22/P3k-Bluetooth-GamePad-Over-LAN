@@ -51,7 +51,7 @@ public partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            ControllerState.Text = "Cannot listen: " + exception.Message;
+            _viewModel!.ReportError("Cannot listen on TCP 8080: " + exception.Message);
         }
     }
 
@@ -59,13 +59,50 @@ public partial class MainWindow : Window
     {
         var viewModel = _viewModel!;
         viewModel.RefreshUI();
-        ControllerState.Text = viewModel.Status;
+        var stats = viewModel.Receiver.Snapshot();
+        ShowStatus(stats, viewModel);
+        ShowError(viewModel.Error);
+        ShowBattery(stats.Client.Length > 0, viewModel.ControllerBattery);
         SourceInfo.Text = viewModel.Source;
-        Statistics.Text = FormatStatistics(viewModel.Receiver.Snapshot());
+        Statistics.Text = FormatStatistics(stats);
         if (Environment.TickCount64 % AddressRefreshPeriodMs < AddressRefreshWindowMs || Addresses.Text.Length == 0)
         {
             Addresses.Text = string.Join("\n", NetworkAddresses.GetAll().Select(address => address.ToString()));
         }
+    }
+
+    /// <summary>Large status line: green only while a phone is connected, red otherwise.</summary>
+    private void ShowStatus(ReceiverStats stats, MainWindowViewModel viewModel)
+    {
+        bool connected = stats.Client.Length > 0;
+        if (connected)
+        {
+            ControllerState.Text = "Connected: " + stats.Client;
+        }
+        else
+        {
+            ControllerState.Text = viewModel.IsRunning ? "Not connected — waiting for phone" : "Stopped";
+        }
+
+        ControllerState.Foreground = connected ? StatusPalette.Good : StatusPalette.Bad;
+    }
+
+    private void ShowError(string? error)
+    {
+        ErrorMessage.Text = error ?? "";
+        ErrorMessage.Visibility = string.IsNullOrEmpty(error) ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void ShowBattery(bool connected, int? percent)
+    {
+        if (!connected)
+        {
+            ControllerBattery.Text = "";
+            return;
+        }
+
+        ControllerBattery.Text = percent is null ? "Controller battery: unknown" : $"Controller battery {percent}%";
+        ControllerBattery.Foreground = StatusPalette.ForBattery(percent);
     }
 
     private static string FormatStatistics(ReceiverStats stats)
@@ -108,22 +145,33 @@ public partial class MainWindow : Window
         {
             using var process = Process.Start(CreateFirewallStartInfo())!;
             await process.WaitForExitAsync();
-            FirewallStatus.Text = process.ExitCode == 0
-                ? "Firewall rules added for this app: TCP 8080 and UDP 8888, local subnet only."
-                : "Firewall rules were not added. Check the administrator prompt and try again.";
+            if (process.ExitCode == 0)
+            {
+                ShowFirewallResult("Firewall rules added for this app: TCP 8080 and UDP 8888, local subnet only.", true);
+            }
+            else
+            {
+                ShowFirewallResult("Firewall rules were not added. Check the administrator prompt and try again.", false);
+            }
         }
         catch (Win32Exception exception)
         {
-            FirewallStatus.Text = "Firewall permission was not granted: " + exception.Message;
+            ShowFirewallResult("Firewall permission was not granted: " + exception.Message, false);
         }
         catch (Exception exception)
         {
-            FirewallStatus.Text = exception.Message;
+            ShowFirewallResult(exception.Message, false);
         }
         finally
         {
             FirewallButton.IsEnabled = true;
         }
+    }
+
+    private void ShowFirewallResult(string message, bool succeeded)
+    {
+        FirewallStatus.Text = message;
+        FirewallStatus.Foreground = succeeded ? StatusPalette.Good : StatusPalette.Bad;
     }
 
     /// <summary>Runs the firewall script elevated and hidden, for this app's own executable.</summary>

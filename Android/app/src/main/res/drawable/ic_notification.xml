@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- A simple game controller silhouette, white as status bar icons require. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,7h12c2.2,0 3.4,1.4 4,4l1,6c0.3,2 -0.6,3 -2,3c-1.2,0 -2,-0.6 -3,-2l-1,-1.5h-8l-1,1.5c-1,1.4 -1.8,2 -3,2c-1.400,0 -2.300,-1 -2,-3l1,-6c0.600,-2.600 1.800,-4 4,-4z" />
+</vector>

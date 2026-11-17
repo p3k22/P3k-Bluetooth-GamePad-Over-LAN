@@ -13,4 +13,17 @@ data class PadState(val values: Map<String, Float> = emptyMap()) {
     fun pressed() = values.filter { (field, value) -> value > .5f && field !in AXIS_FIELDS }.keys
 }
 
-data class InputSnapshot(val state: PadState, val source: String, val deviceName: String, val capturedNs: Long)
+/** Where a [PadState] came from; [protocolName] is the value of the frame's "source" field. */
+enum class InputSource(val protocolName: String) {
+    BLUETOOTH("bluetooth"),
+    TOUCH("touch"),
+}
+
+/** One state to send to Windows. [controllerBattery] is a percentage, or null when unknown or not a controller. */
+data class InputSnapshot(
+    val state: PadState,
+    val source: String,
+    val deviceName: String,
+    val capturedNs: Long,
+    val controllerBattery: Int? = null,
+)

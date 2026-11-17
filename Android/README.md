@@ -2,7 +2,7 @@
 
 Use an Android phone as either a **Bluetooth controller bridge** or a **multitouch gamepad** for the [Windows receiver](../Windows/README.md).
 
-1. Run the Windows app and keep this app in the foreground on the same LAN.
+1. Run the Windows app and open this app on the same LAN.
 2. Automatic discovery connects to the Windows app. **Find Windows** retries.
 3. If discovery is blocked, enter the Windows LAN **IP/hostname** and TCP **port** (default 8080), then tap **Connect IP**.
 4. Leave **Touchscreen mode** off to forward the first connected Android gamepad. Pair your PS4 controller in Android's Bluetooth settings first.
@@ -24,9 +24,32 @@ For the parts the round trip cannot see, the app writes per-event timing to logc
 
 The app requests unbuffered dispatch for controller input (Android 11+). By default Android holds joystick events until the next display frame; measured on the Pixel 8a, opting out cut Android's stick delivery delay from 12.3 ms to 3.7 ms on average (p95 15.9 ms to 6.3 ms) and button delivery from 10.5 ms to 6.2 ms.
 
-While connected, the app requests [Android low-latency Wi-Fi mode](https://developer.android.com/reference/android/net/wifi/WifiManager#WIFI_MODE_FULL_LOW_LATENCY), active while the app is foregrounded and the screen is on. This can use more battery. The lock is released on disconnect/backgrounding.
+While connected, the app requests [Android low-latency Wi-Fi mode](https://developer.android.com/reference/android/net/wifi/WifiManager#WIFI_MODE_FULL_LOW_LATENCY). This can use more battery. The lock is released on disconnect.
 
-The app disconnects when backgrounded; reconnect when returning. Windows releases the virtual pad on disconnect or after a 500 ms stall. One phone controls one virtual pad.
+## Background and lock screen
+
+The connection lives in a foreground service (`ForwardingService`, type `connectedDevice`) with a notification that
+shows the PC and has a **Disconnect** action, so leaving the app or locking the phone does not disconnect. Only
+**Disconnect** or a connection error ends it. In touch mode, leaving the app releases the on-screen pad.
+
+Android only delivers controller input to the focused window, so input from other apps and the lock screen comes
+through `ControllerAccessibilityService`, which the user turns on in **Settings → Accessibility → P3k Gamepad
+controller capture**. Since Android 14 an accessibility service can receive joystick motion (`setMotionEventSources`)
+as well as keys (`FLAG_REQUEST_FILTER_KEY_EVENTS`). It takes controller events only while a Bluetooth controller is
+being forwarded; otherwise it passes keys through and stops requesting motion. Measured on the Pixel 8a, delivery
+through the service averaged 4.1 ms for sticks and buttons. Its per-event timing is logged under the tag `P3kA11y`.
+
+Input only arrives while the screen is on. While forwarding a controller, the service holds a screen-dim wake lock so
+the lock screen stays on, dimmed, with the phone still locked. Pressing power turns the screen off and pauses input
+until it comes back on.
+
+Windows releases the virtual pad on disconnect or after a 500 ms stall. One phone controls one virtual pad.
+
+## Status display
+
+The status line is large and green while connected, red otherwise; errors appear underneath in red. The controller
+battery (Android 12+, for controllers that report it) shows green from 50%, orange from 20% and red below, and is sent
+to Windows in each frame as `controllerBattery`.
 
 ## Diagnostics
 
@@ -53,6 +76,6 @@ Release builds are signed only when the environment variable `P3K_SIGNING_SETTIN
 the repo holding `storeFile`, `storePassword`, `keyAlias` and `keyPassword`; otherwise `assembleRelease` produces an
 unsigned APK.
 
-The package remains com.p3kIndustries.P3kBT2PC; version 2.0, protocol v2.
+The package remains com.p3kIndustries.P3kBT2PC; version 2.1, protocol v2.
 
 See [PROTOCOL.md](../PROTOCOL.md).

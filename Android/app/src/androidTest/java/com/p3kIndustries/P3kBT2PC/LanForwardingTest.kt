@@ -17,7 +17,7 @@ class LanForwardingTest {
         val host = InstrumentationRegistry.getArguments().getString("host")
         org.junit.Assume.assumeTrue("Pass -e host WINDOWS_IP to run the LAN check", !host.isNullOrBlank())
         var status = ""
-        val sender = Server { status = it }
+        val sender = Server { status = it.message }
         fun snapshot(state: PadState, source: String) = InputSnapshot(state, source,
             "Automated LAN test (not physical presses)", SystemClock.elapsedRealtimeNanos())
         fun waitUntil(timeout: Long = 5000, ready: () -> Boolean) {

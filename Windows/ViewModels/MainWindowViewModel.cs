@@ -13,11 +13,13 @@ public sealed class MainWindowViewModel
     private bool _emulatePlayStationPad;
     private string _status = "Starting…";
     private string _source = "";
+    private string? _error;
+    private int? _controllerBattery;
 
     public MainWindowViewModel(UIViewModels views)
     {
         _views = views;
-        Receiver = new InputReceiver(Apply, Release, status => _status = status);
+        Receiver = new InputReceiver(Apply, Release, status => _status = status, ReportError);
     }
 
     public InputReceiver Receiver { get; }
@@ -25,6 +27,17 @@ public sealed class MainWindowViewModel
     public string Status => _status;
 
     public string Source => _source;
+
+    /// <summary>The most recent problem, cleared as soon as input flows again.</summary>
+    public string? Error => _error;
+
+    /// <summary>Controller battery percentage reported by the phone, or null when unknown.</summary>
+    public int? ControllerBattery => _controllerBattery;
+
+    public void ReportError(string message)
+    {
+        _error = message;
+    }
 
     public bool IsRunning { get; private set; }
 
@@ -57,7 +70,7 @@ public sealed class MainWindowViewModel
         }
         catch (Exception exception)
         {
-            _status = "Listening on TCP 8080; discovery unavailable: " + exception.Message;
+            _error = "Automatic discovery unavailable (manual IP still works): " + exception.Message;
         }
     }
 
@@ -117,6 +130,8 @@ public sealed class MainWindowViewModel
             _emulator.MapInputs(frame.Values);
             _latestValues = frame.Values;
             _source = $"{frame.Source} · {frame.DeviceName}";
+            _controllerBattery = frame.ControllerBattery;
+            _error = null;
         }
     }
 
@@ -128,6 +143,7 @@ public sealed class MainWindowViewModel
             _emulator = null;
             _latestValues = InputFrame.Neutral();
             _source = "";
+            _controllerBattery = null;
         }
     }
 }

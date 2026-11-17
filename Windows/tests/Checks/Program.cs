@@ -183,6 +183,10 @@ static class Checks
         Check(
             legacy["l3"] == 1 && legacy["leftStickY"] == -1 && legacy["buttonX"] == 0 && legacy["r2"] == 1,
             "Legacy aliases, Y orientation, button/trigger clamping");
+        Check(InputFrame.Parse("{\"controllerBattery\":73,\"input\":{}}").ControllerBattery == 73
+              && InputFrame.Parse("{\"controllerBattery\":140,\"input\":{}}").ControllerBattery is null
+              && InputFrame.Parse("{\"input\":{}}").ControllerBattery is null,
+            "Controller battery read when valid, unknown when missing or out of range");
         CheckThrows<System.IO.InvalidDataException>(
             () => new LineFramer().Add(new byte[LineFramer.MaxLineBytes + 1]),
             "Accepted oversized frame",

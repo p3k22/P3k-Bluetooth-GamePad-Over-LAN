@@ -1,5 +1,6 @@
 package com.p3kIndustries.P3kBT2PC.services
 
+import android.content.Context
 import android.content.SharedPreferences
 
 private const val KEY_HOST = "host"
@@ -27,5 +28,14 @@ class AppSettings(private val preferences: SharedPreferences) {
             .putString(KEY_HOST, host)
             .putString(KEY_PORT, port.toString())
             .apply()
+    }
+
+    companion object {
+        /** The file MainActivity.getPreferences() always used, so saved values survive the restructure. */
+        private const val PREFERENCES_NAME = "MainActivity"
+
+        fun forApplication(context: Context) = AppSettings(
+            context.applicationContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE),
+        )
     }
 }

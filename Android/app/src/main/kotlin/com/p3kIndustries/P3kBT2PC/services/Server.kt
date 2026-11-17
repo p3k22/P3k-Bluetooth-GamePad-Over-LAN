@@ -33,8 +33,16 @@ data class LinkStats(
     val applyUs: Double = 0.0,
 )
 
-/** One TCP link to the Windows app: queues input snapshots, writes them as JSON lines, reads the acknowledgements. */
-class Server(private val onStatus: (String) -> Unit) {
+enum class LinkState { CONNECTING, CONNECTED, DISCONNECTED, FAILED }
+
+/** A change of the link; [message] describes it and, for [LinkState.FAILED], is the error. */
+data class ServerEvent(val state: LinkState, val message: String)
+
+/**
+ * One TCP link to the Windows app: queues input snapshots, writes them as JSON lines, reads the acknowledgements.
+ * [onEvent] is called on the writer and reader threads, so a caller that needs the main thread must post.
+ */
+class Server(private val onEvent: (ServerEvent) -> Unit) {
     @Volatile private var session: Session? = null
     @Volatile private var lastStats = LinkStats()
 
@@ -61,7 +69,7 @@ class Server(private val onStatus: (String) -> Unit) {
         if (previous != null) lastStats = previous.stats
         session = null
         previous?.close()
-        if (previous != null) onStatus("Disconnected")
+        if (previous != null) onEvent(ServerEvent(LinkState.DISCONNECTED, "Disconnected"))
     }
 
     private inner class Session(private val host: String, private val port: Int, initial: InputSnapshot) {
@@ -120,20 +128,20 @@ class Server(private val onStatus: (String) -> Unit) {
                 if (session === this) {
                     lastStats = stats
                     session = null
-                    onStatus(message)
+                    onEvent(ServerEvent(LinkState.FAILED, message))
                 }
             }
         }
 
         /** Returns false when the session was closed while connecting. */
         private fun connectSocket(): Boolean {
-            onStatus("Connecting to $host:$port")
+            onEvent(ServerEvent(LinkState.CONNECTING, "Connecting to $host:$port"))
             socket.tcpNoDelay = true
             socket.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
             socket.soTimeout = READ_TIMEOUT_MS
             if (closed) return false
             connected = true
-            onStatus("Connected to $host:$port")
+            onEvent(ServerEvent(LinkState.CONNECTED, "Connected to $host:$port"))
             return true
         }
 
@@ -205,14 +213,18 @@ class Server(private val onStatus: (String) -> Unit) {
 
         private fun pollNextSnapshot() = queue.poll(HEARTBEAT_INTERVAL_MS, TimeUnit.MILLISECONDS)
 
-        private fun buildInputFrame(sequence: Long, sentNs: Long, snapshot: InputSnapshot) = JSONObject()
-            .put("type", "input")
-            .put("protocol", PROTOCOL_VERSION)
-            .put("sequence", sequence)
-            .put("sentNs", sentNs)
-            .put("source", snapshot.source)
-            .put("deviceName", snapshot.deviceName)
-            .put("input", JSONObject(snapshot.state.values))
+        private fun buildInputFrame(sequence: Long, sentNs: Long, snapshot: InputSnapshot): JSONObject {
+            val frame = JSONObject()
+                .put("type", "input")
+                .put("protocol", PROTOCOL_VERSION)
+                .put("sequence", sequence)
+                .put("sentNs", sentNs)
+                .put("source", snapshot.source)
+                .put("deviceName", snapshot.deviceName)
+                .put("input", JSONObject(snapshot.state.values))
+            snapshot.controllerBattery?.let { percent -> frame.put("controllerBattery", percent) }
+            return frame
+        }
 
         private fun writeFrame(output: OutputStream, frame: JSONObject) {
             output.write((frame.toString() + "\n").toByteArray(Charsets.UTF_8))

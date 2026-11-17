@@ -1,83 +1,78 @@
 package com.p3kIndustries.P3kBT2PC
 
-import android.content.Context
+import android.Manifest
 import android.content.Intent
-import android.hardware.input.InputManager
-import android.net.wifi.WifiManager
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
-import android.util.Log
+import android.provider.Settings
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
-import com.p3kIndustries.P3kBT2PC.events.Device
-import com.p3kIndustries.P3kBT2PC.models.InputSnapshot
-import com.p3kIndustries.P3kBT2PC.models.PadState
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import com.p3kIndustries.P3kBT2PC.models.InputSource
 import com.p3kIndustries.P3kBT2PC.services.AppSettings
-import com.p3kIndustries.P3kBT2PC.services.Destination
-import com.p3kIndustries.P3kBT2PC.services.InputActivityLog
-import com.p3kIndustries.P3kBT2PC.services.InputTimingLog
-import com.p3kIndustries.P3kBT2PC.services.LanDiscovery
-import com.p3kIndustries.P3kBT2PC.services.Server
-import com.p3kIndustries.P3kBT2PC.services.WifiLatencyLock
+import com.p3kIndustries.P3kBT2PC.services.ControllerAccessibilityService
+import com.p3kIndustries.P3kBT2PC.services.ForwardingSnapshot
+import com.p3kIndustries.P3kBT2PC.services.Forwarder
 import com.p3kIndustries.P3kBT2PC.ui.MainScreen
 import com.p3kIndustries.P3kBT2PC.ui.formatMetrics
 
-private const val RAW_KEY_LOG_TAG = "P3kInput"
-private const val METRICS_REFRESH_MS = 250L
-private const val TOUCH_MODE_DEVICE_INFO = "Touchscreen gamepad · multitouch enabled"
+private const val SCREEN_REFRESH_MS = 250L
+private const val FIRST_SDK_WITH_NOTIFICATION_PERMISSION = 33
+private const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1
 
-/** Coordinates the screen, the gamepad input, the LAN discovery and the TCP link to the Windows app. */
-class MainActivity : AppCompatActivity(), InputManager.InputDeviceListener, MainScreen.Listener {
+/**
+ * The screen of the app. It shows what [Forwarder] reports and passes the user's actions to it. The connection
+ * itself lives in the forwarder, so it survives this activity leaving the screen or the phone being locked.
+ */
+class MainActivity : AppCompatActivity(), MainScreen.Listener {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val discovery = LanDiscovery()
-    private val inputLog = InputActivityLog()
-    private val server = Server { message -> mainHandler.post { onServerStatus(message) } }
-    private val device = Device { next -> if (!touchMode) accept(next) }
-    private lateinit var screen: MainScreen
+    private lateinit var forwarder: Forwarder
     private lateinit var settings: AppSettings
-    private lateinit var inputManager: InputManager
-    private lateinit var wifiLatency: WifiLatencyLock
-    private var multicastLock: WifiManager.MulticastLock? = null
-    private var touchMode = false
-    private var searching = false
-    private var latest = PadState()
+    private lateinit var screen: MainScreen
+    private var shownDestination: Pair<String, Int>? = null
 
-    private val refreshMetrics = object : Runnable {
+    private val refreshScreen = object : Runnable {
         override fun run() {
-            screen.showMetrics(formatMetrics(server.stats, inputLog))
-            screen.showConnectButtonBusy(server.busy)
-            screen.showDeviceInfo(if (touchMode) TOUCH_MODE_DEVICE_INFO else device.name)
-            mainHandler.postDelayed(this, METRICS_REFRESH_MS)
+            showSnapshot(forwarder.snapshot())
+            mainHandler.postDelayed(this, SCREEN_REFRESH_MS)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        wifiLatency = WifiLatencyLock(applicationContext)
-        inputManager = getSystemService(Context.INPUT_SERVICE) as InputManager
-        inputManager.registerInputDeviceListener(this, mainHandler)
-        settings = AppSettings(getPreferences(Context.MODE_PRIVATE))
+        forwarder = Forwarder.get(this)
+        settings = AppSettings.forApplication(this)
         showScreen()
-        device.refresh()
-        mainHandler.post(refreshMetrics)
-        mainHandler.post { findWindows() }
+        // The permission dialog pauses this activity, which cancels a search, so searching waits for the next tap.
+        val isAskingPermission = requestNotificationPermission()
+        if (!isAskingPermission) mainHandler.post { searchOnLaunch() }
+    }
+
+    /** A fresh launch looks for the Windows app at once; an app that is already connected is left alone. */
+    private fun searchOnLaunch() {
+        val snapshot = forwarder.snapshot()
+        if (!snapshot.isBusy && !snapshot.isSearching) forwarder.find()
     }
 
     private fun showScreen() {
-        screen = MainScreen(this, this, settings.host, settings.port) { next -> if (touchMode) accept(next) }
+        screen = MainScreen(this, this, settings.host, settings.port) { next ->
+            forwarder.accept(next, InputSource.TOUCH)
+        }
         val root = screen.root
         setContentView(root)
         root.requestFocus()
         requestImmediateControllerInput(root)
-        screen.setTouchModeChecked(settings.touchMode)
+        screen.setTouchModeChecked(forwarder.snapshot().touchMode)
+        shownDestination = settings.host to (settings.port.toIntOrNull() ?: 0)
     }
 
     /**
@@ -90,196 +85,112 @@ class MainActivity : AppCompatActivity(), InputManager.InputDeviceListener, Main
         }
     }
 
+    /**
+     * The foreground service's notification is only visible once the user allows notifications (Android 13+).
+     * Returns true when the permission dialog was opened.
+     */
+    private fun requestNotificationPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < FIRST_SDK_WITH_NOTIFICATION_PERMISSION) return false
+        val permission = Manifest.permission.POST_NOTIFICATIONS
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) return false
+        ActivityCompat.requestPermissions(this, arrayOf(permission), NOTIFICATION_PERMISSION_REQUEST_CODE)
+        return true
+    }
+
     // MainScreen.Listener
 
     override fun onTouchModeToggled(enabled: Boolean) {
         screen.gamepad.release()
-        sendNeutralState()
-        touchMode = enabled
+        forwarder.setTouchMode(enabled)
         screen.gamepad.interactive = enabled
-        latest = if (enabled) PadState() else device.state
-        screen.gamepad.state = latest
-        server.send(snapshot(latest))
-        settings.touchMode = enabled
+        screen.gamepad.state = forwarder.snapshot().padState
     }
 
     override fun onResetCountsClicked() {
-        inputLog.reset()
+        forwarder.inputLog.reset()
     }
 
     override fun onShareLogClicked() {
-        val modeName = if (touchMode) "touch" else device.name
-        val logText = inputLog.shareText(modeName, server.stats)
         val shareIntent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, logText)
+            putExtra(Intent.EXTRA_TEXT, forwarder.shareLogText())
         }
         startActivity(Intent.createChooser(shareIntent, "Share input log"))
     }
 
     override fun onConnectClicked() {
-        if (server.busy) {
-            cancelSearch()
-            server.disconnect()
+        if (forwarder.snapshot().isBusy) {
+            forwarder.disconnect()
             return
         }
-        val host = screen.enteredHost
-        val port = screen.enteredPort
-        if (host.isBlank() || port == null || port !in 1..65535) {
-            screen.showStatus("Enter a Windows IP/hostname and port 1–65535")
-        } else {
-            connect(Destination(host.trim(), port, "Manual"))
-        }
+        screen.hideKeyboard()
+        forwarder.connect(screen.enteredHost, screen.enteredPort)
     }
 
     override fun onFindWindowsClicked() {
-        if (searching) cancelSearch() else findWindows()
+        if (forwarder.snapshot().isSearching) forwarder.cancelSearch() else forwarder.find()
     }
 
-    // Input state
-
-    private fun snapshot(state: PadState) = InputSnapshot(
-        state,
-        if (touchMode) "touch" else "bluetooth",
-        if (touchMode) "Phone touchscreen" else device.name,
-        SystemClock.elapsedRealtimeNanos(),
-    )
-
-    private fun accept(next: PadState) {
-        inputLog.recordChange(latest, next)
-        latest = next
-        screen.gamepad.state = next
-        server.send(snapshot(next))
+    override fun onOpenAccessibilitySettingsClicked() {
+        startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
-    private fun sendNeutralState() {
-        latest = PadState()
-        server.send(snapshot(latest))
+    // Showing the forwarder
+
+    private fun showSnapshot(snapshot: ForwardingSnapshot) {
+        showDestinationIfChanged(snapshot)
+        screen.showStatus(snapshot)
+        screen.showMetrics(formatMetrics(snapshot.stats, forwarder.inputLog))
+        screen.showConnectButtonBusy(snapshot.isBusy)
+        screen.showSearching(snapshot.isSearching)
     }
 
-    private fun onServerStatus(message: String) {
-        screen.showStatus(message)
-        inputLog.addEntry(message)
-        wifiLatency.setEnabled(server.connected)
+    /** A Windows app found by the LAN search puts its address into the fields. */
+    private fun showDestinationIfChanged(snapshot: ForwardingSnapshot) {
+        val destination = snapshot.host to snapshot.port
+        if (snapshot.host.isBlank() || destination == shownDestination) return
+        shownDestination = destination
+        screen.showDestination(snapshot.host, snapshot.port)
     }
 
-    // Connection and discovery
-
-    private fun connect(destination: Destination) {
-        cancelSearch()
-        screen.showDestination(destination.host, destination.port)
-        settings.saveDestination(destination.host, destination.port)
-        server.connect(destination.host, destination.port, snapshot(latest))
-    }
-
-    private fun findWindows() {
-        if (server.busy) {
-            screen.showStatus("Disconnect before searching for another Windows app")
-            return
-        }
-        searching = true
-        screen.showSearching(true)
-        screen.showStatus("Searching LAN for Windows app…")
-        acquireMulticastLock()
-        discovery.discover(
-            found = { destination -> mainHandler.post { onServerFound(destination) } },
-            completed = { mainHandler.post { onSearchFinished() } },
-        )
-    }
-
-    private fun onServerFound(destination: Destination) {
-        if (searching && !server.busy) connect(destination)
-    }
-
-    private fun onSearchFinished() {
-        if (!searching) return
-        cancelSearch()
-        screen.showStatus("No Windows app found. Use its IP or add its firewall exception.")
-    }
-
-    private fun cancelSearch() {
-        searching = false
-        discovery.cancel()
-        screen.showSearching(false)
-        releaseMulticastLock()
-    }
-
-    private fun acquireMulticastLock() {
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-        multicastLock = wifiManager.createMulticastLock("P3k-gamepad-discovery").apply {
-            setReferenceCounted(false)
-            acquire()
-        }
-    }
-
-    private fun releaseMulticastLock() {
-        if (multicastLock?.isHeld == true) multicastLock?.release()
-        multicastLock = null
-    }
-
-    // Controller events
+    // Controller events while the app is in front and the accessibility service does not deliver them
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (Device.isController(event.device)) logRawControllerKey(event)
-        if (!touchMode && device.key(event)) {
-            InputTimingLog.key(event)
-            return true
-        }
-        return super.dispatchKeyEvent(event)
+        return forwarder.handleKey(event) || super.dispatchKeyEvent(event)
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        if (!touchMode && device.motion(event)) {
-            InputTimingLog.motion(event)
-            return true
-        }
-        return super.onGenericMotionEvent(event)
+        return forwarder.handleMotion(event) || super.onGenericMotionEvent(event)
     }
 
-    private fun logRawControllerKey(event: KeyEvent) {
-        val isFirstDown = event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0
-        if (event.keyCode == KeyEvent.KEYCODE_BUTTON_X && isFirstDown) inputLog.recordRawSquareDown()
-        if (event.repeatCount == 0 || event.action == KeyEvent.ACTION_UP) {
-            val rawKeyText = "RAW key=${event.keyCode} action=${event.action} device=${event.deviceId} " +
-                "selected=${device.selectedId} repeat=${event.repeatCount} scan=${event.scanCode} " +
-                "time=${event.eventTime}"
-            inputLog.addEntry(rawKeyText)
-            Log.i(RAW_KEY_LOG_TAG, rawKeyText)
-        }
+    // Lifecycle: leaving the app or locking the phone never ends the connection.
+
+    override fun onStart() {
+        super.onStart()
+        forwarder.setUiVisible(true)
+        mainHandler.post(refreshScreen)
     }
 
-    override fun onInputDeviceAdded(deviceId: Int) {
-        device.refresh()
+    override fun onResume() {
+        super.onResume()
+        screen.showAccessibilityHint(!ControllerAccessibilityService.isEnabled(this))
+        screen.gamepad.state = forwarder.snapshot().padState
+        forwarder.setPadStateObserver { next -> screen.gamepad.state = next }
     }
-
-    override fun onInputDeviceChanged(deviceId: Int) {
-        device.refresh()
-    }
-
-    override fun onInputDeviceRemoved(deviceId: Int) {
-        device.refresh()
-    }
-
-    // Lifecycle
 
     override fun onPause() {
+        forwarder.setPadStateObserver(null)
         if (!isChangingConfigurations) {
             screen.gamepad.release()
-            device.neutral()
-            sendNeutralState()
-            server.disconnect()
-            cancelSearch()
-            wifiLatency.setEnabled(false)
+            forwarder.releaseTouchInput()
+            forwarder.cancelSearch()
         }
         super.onPause()
     }
 
-    override fun onDestroy() {
-        mainHandler.removeCallbacksAndMessages(null)
-        discovery.cancel()
-        server.disconnect()
-        wifiLatency.setEnabled(false)
-        inputManager.unregisterInputDeviceListener(this)
-        super.onDestroy()
+    override fun onStop() {
+        mainHandler.removeCallbacks(refreshScreen)
+        forwarder.setUiVisible(false)
+        super.onStop()
     }
 }

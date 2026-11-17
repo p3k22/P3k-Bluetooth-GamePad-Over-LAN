@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 import com.p3kIndustries.P3kBT2PC.models.PadState
+import com.p3kIndustries.P3kBT2PC.services.ForwardingSnapshot
 
 /** The single screen of the app: title row, connection row, status lines, gamepad and metrics. */
 class MainScreen(
@@ -27,6 +28,7 @@ class MainScreen(
         fun onShareLogClicked()
         fun onConnectClicked()
         fun onFindWindowsClicked()
+        fun onOpenAccessibilitySettingsClicked()
     }
 
     val gamepad = GamepadView(context, onGamepadChanged)
@@ -37,16 +39,14 @@ class MainScreen(
     private val portField = createPortField(savedPort)
     private val connectButton = createButton("Connect IP") { listener.onConnectClicked() }
     private val findButton = createButton("Find Windows") { listener.onFindWindowsClicked() }
-    private val statusText = createLabel("Ready — start the Windows app", 13f)
-    private val deviceInfoText = createLabel("", 12f)
+    private val statusPanel = StatusPanel(context) { listener.onOpenAccessibilitySettingsClicked() }
     private val metricsText = createLabel("", 11f).apply { typeface = Typeface.MONOSPACE }
 
     init {
         root = createRoot()
         root.addView(createTitleRow())
         root.addView(createConnectionRow())
-        root.addView(statusText)
-        root.addView(deviceInfoText)
+        root.addView(statusPanel)
         root.addView(gamepad, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
         root.addView(metricsText)
         root.isFocusableInTouchMode = true
@@ -63,12 +63,12 @@ class MainScreen(
         touchModeSwitch.isChecked = enabled
     }
 
-    fun showStatus(message: String) {
-        statusText.text = message
+    fun showStatus(snapshot: ForwardingSnapshot) {
+        statusPanel.show(snapshot)
     }
 
-    fun showDeviceInfo(text: String) {
-        deviceInfoText.text = text
+    fun showAccessibilityHint(isVisible: Boolean) {
+        statusPanel.showAccessibilityHint(isVisible)
     }
 
     fun showMetrics(text: String) {
@@ -87,6 +87,10 @@ class MainScreen(
     fun showDestination(host: String, port: Int) {
         hostField.setText(host)
         portField.setText(port.toString())
+        hideKeyboard()
+    }
+
+    fun hideKeyboard() {
         hostField.clearFocus()
         portField.clearFocus()
         val inputMethodManager = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager

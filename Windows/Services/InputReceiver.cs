@@ -26,6 +26,7 @@ public sealed class InputReceiver
     private readonly Action<InputFrame> _applyFrame;
     private readonly Action _releaseInput;
     private readonly Action<string> _reportStatus;
+    private readonly Action<string>? _reportError;
 
     // Guards every field below; frames are applied and statistics read while holding it.
     private readonly object _gate = new();
@@ -44,11 +45,12 @@ public sealed class InputReceiver
     private long _squareDownCount;
     private string _clientAddress = "";
 
-    public InputReceiver(Action<InputFrame> apply, Action release, Action<string> status)
+    public InputReceiver(Action<InputFrame> apply, Action release, Action<string> status, Action<string>? error = null)
     {
         _applyFrame = apply;
         _releaseInput = release;
         _reportStatus = status;
+        _reportError = error;
     }
 
     public int Port => ((IPEndPoint)_listener!.LocalEndpoint).Port;
@@ -183,7 +185,11 @@ public sealed class InputReceiver
         {
             var releaseError = ReleaseClient(client);
             error ??= releaseError;
-            _reportStatus(error is null ? WaitingStatus : "Disconnected: " + error);
+            _reportStatus(WaitingStatus);
+            if (error is not null)
+            {
+                _reportError?.Invoke("Phone disconnected: " + error);
+            }
         }
     }
 

@@ -9,7 +9,8 @@ public sealed record InputFrame(
     long Sequence,
     long SentNs,
     string Source,
-    string DeviceName)
+    string DeviceName,
+    int? ControllerBattery = null)
 {
     private const int MaxJsonDepth = 8;
     private const int MaxTextLength = 100;
@@ -50,8 +51,17 @@ public sealed record InputFrame(
             ReadSequence(root),
             ReadSentNs(root),
             ReadString(root, "source", DefaultSource),
-            ReadString(root, "deviceName", DefaultDeviceName));
+            ReadString(root, "deviceName", DefaultDeviceName),
+            ReadControllerBattery(root));
     }
+
+    /// <summary>Controller battery percentage, when the phone knows it; anything outside 0–100 counts as unknown.</summary>
+    private static int? ReadControllerBattery(JsonElement root) =>
+        root.TryGetProperty("controllerBattery", out var property)
+        && property.TryGetInt32(out var percent)
+        && percent is >= 0 and <= 100
+            ? percent
+            : null;
 
     private static Dictionary<string, float> ReadValues(JsonElement input)
     {
