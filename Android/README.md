@@ -45,6 +45,14 @@ until it comes back on.
 
 Windows releases the virtual pad on disconnect or after a 500 ms stall. One phone controls one virtual pad.
 
+### Reconnecting
+
+A session lasts from a successful connect until the user taps **Disconnect** (in the app or the notification). If the
+link drops during a session (Wi-Fi blip, Windows app restarted), the app retries every 3 seconds and shows
+"Reconnecting…" in red, keeping the screen and Wi-Fi awake meanwhile; it gives up after 10 minutes. If Android stops
+the app (an update, or reclaiming memory), Android restarts the accessibility service, and the app resumes the session
+from there without being opened. A first connection that never succeeded (for example a wrong IP) is not retried.
+
 ## Status display
 
 The status line is large and green while connected, red otherwise; errors appear underneath in red. The controller
@@ -76,6 +84,6 @@ Release builds are signed only when the environment variable `P3K_SIGNING_SETTIN
 the repo holding `storeFile`, `storePassword`, `keyAlias` and `keyPassword`; otherwise `assembleRelease` produces an
 unsigned APK.
 
-The package remains com.p3kIndustries.P3kBT2PC; version 2.1, protocol v2.
+The package remains com.p3kIndustries.P3kBT2PC; version 2.2, protocol v2.
 
 See [PROTOCOL.md](../PROTOCOL.md).

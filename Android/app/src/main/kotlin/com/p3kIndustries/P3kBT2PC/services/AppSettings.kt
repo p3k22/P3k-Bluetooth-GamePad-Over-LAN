@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 private const val KEY_HOST = "host"
 private const val KEY_PORT = "port"
 private const val KEY_TOUCH_MODE = "touchMode"
+private const val KEY_SESSION_WANTED = "sessionWanted"
 private const val DEFAULT_HOST = ""
 private const val DEFAULT_PORT = "8080"
 
@@ -21,6 +22,13 @@ class AppSettings(private val preferences: SharedPreferences) {
         get() = preferences.getBoolean(KEY_TOUCH_MODE, false)
         set(enabled) {
             preferences.edit().putBoolean(KEY_TOUCH_MODE, enabled).apply()
+        }
+
+    /** True from a connect until the user disconnects, so a session cut short (app update, kill) is resumed. */
+    var sessionWanted: Boolean
+        get() = preferences.getBoolean(KEY_SESSION_WANTED, false)
+        set(wanted) {
+            preferences.edit().putBoolean(KEY_SESSION_WANTED, wanted).apply()
         }
 
     fun saveDestination(host: String, port: Int) {

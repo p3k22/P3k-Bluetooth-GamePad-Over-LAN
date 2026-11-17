@@ -3,7 +3,7 @@ package com.p3kIndustries.P3kBT2PC.services
 import com.p3kIndustries.P3kBT2PC.models.PadState
 
 /** The connection state the screen shows. */
-enum class ForwardingStatus { NOT_CONNECTED, SEARCHING, CONNECTING, CONNECTED, DISCONNECTED }
+enum class ForwardingStatus { NOT_CONNECTED, SEARCHING, CONNECTING, CONNECTED, RECONNECTING, DISCONNECTED }
 
 /** An immutable copy of everything the screen shows about the forwarder, taken at one moment. */
 data class ForwardingSnapshot(
@@ -20,7 +20,7 @@ data class ForwardingSnapshot(
     /** Percent 0..100, or null when there is no controller or Android does not report a level. */
     val controllerBattery: Int?,
     val padState: PadState,
-    /** True while a connection is being made or is up: the Connect button then reads Disconnect. */
+    /** True while a connection is being made, is up or is being retried: the Connect button then reads Disconnect. */
     val isBusy: Boolean,
 ) {
     val isSearching get() = status == ForwardingStatus.SEARCHING

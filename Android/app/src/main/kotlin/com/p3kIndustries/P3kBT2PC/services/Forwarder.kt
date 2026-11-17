@@ -28,6 +28,10 @@ private const val MAX_PORT = 65535
 private const val MESSAGE_INVALID_DESTINATION = "Enter a Windows IP/hostname and port 1–65535"
 private const val MESSAGE_DISCONNECT_FIRST = "Disconnect before searching for another Windows app"
 private const val MESSAGE_NOTHING_FOUND = "No Windows app found. Use its IP or add its firewall exception."
+private const val RECONNECT_DELAY_MS = 3_000L
+private const val RECONNECT_GIVE_UP_MS = 10 * 60_000L
+private const val MESSAGE_GAVE_UP = "Stopped reconnecting after 10 minutes. Tap Connect IP to try again."
+private const val NOT_RECONNECTING = 0L
 
 /**
  * Owns the whole forwarding pipeline for the process: the TCP link, the gamepad, the touch state, the LAN
@@ -58,12 +62,28 @@ class Forwarder private constructor(context: Context) {
     private var latest = PadState()
     private var controllerBattery: Int? = null
     private var isUiVisible = false
+    private var sessionWanted = settings.sessionWanted
+    // Only a session that has worked (or is being resumed) is retried; a wrong address just fails.
+    private var retryWhenLost = false
+    private var reconnectStartedAtMs = NOT_RECONNECTING
+    private val reconnectAttempt = Runnable { attemptReconnect() }
 
     /** Counters and the event list behind the metrics line and the shared log. */
     val inputLog = InputActivityLog()
 
     /** True while a Bluetooth controller's input is being sent to Windows. */
     val isForwardingController get() = status == ForwardingStatus.CONNECTED && !touchMode
+
+    /** True from a connect until the user disconnects or retrying gives up, including while reconnecting. */
+    val isSessionActive
+        get() = sessionWanted && status in setOf(
+            ForwardingStatus.CONNECTING,
+            ForwardingStatus.CONNECTED,
+            ForwardingStatus.RECONNECTING,
+        )
+
+    /** The lock screen is kept on while a controller session is active, because input stops with the screen off. */
+    val keepsScreenAwake get() = isSessionActive && !touchMode
 
     private val batteryRefresh = object : Runnable {
         override fun run() {
@@ -81,6 +101,8 @@ class Forwarder private constructor(context: Context) {
     init {
         inputManager.registerInputDeviceListener(deviceListener, mainHandler)
         device.refresh()
+        // The process may be starting because the accessibility service came back after an update or a kill.
+        mainHandler.post { resumeIfWanted() }
     }
 
     // Observing
@@ -95,7 +117,7 @@ class Forwarder private constructor(context: Context) {
         deviceName = if (touchMode) TOUCH_MODE_DEVICE_INFO else device.name,
         controllerBattery = controllerBattery,
         padState = latest,
-        isBusy = server.busy,
+        isBusy = server.busy || status == ForwardingStatus.RECONNECTING,
     )
 
     /** Called when the connection status, the touch mode or the gamepad changes. */
@@ -136,10 +158,24 @@ class Forwarder private constructor(context: Context) {
         connectTo(Destination(trimmedHost, port, "Manual"))
     }
 
-    /** Ends the connection or the connect attempt. Safe to call when nothing is connected. */
+    /** Ends the connection, the connect attempt or the reconnecting. Safe to call when nothing is connected. */
     fun disconnect() {
+        setSessionWanted(false)
         cancelSearch()
+        val wasReconnecting = status == ForwardingStatus.RECONNECTING
         server.disconnect()
+        // While waiting between attempts the link is idle and reports nothing, so the session is ended here.
+        if (wasReconnecting) endConnection(error = null)
+    }
+
+    /** Reconnects to the last Windows app when the previous session was cut short rather than ended by the user. */
+    fun resumeIfWanted() {
+        val hasDestination = host.isNotBlank() && port in MIN_PORT..MAX_PORT
+        if (!sessionWanted || !hasDestination || server.busy || status == ForwardingStatus.RECONNECTING) return
+        inputLog.addEntry("Resuming the previous session with $host:$port")
+        Log.i(TAG, "Resuming the previous session with $host:$port")
+        retryWhenLost = true
+        connectTo(Destination(host, port, "Resumed"))
     }
 
     /** Searches the LAN for a Windows app and connects to the first one that answers. */
@@ -168,9 +204,11 @@ class Forwarder private constructor(context: Context) {
 
     private fun connectTo(destination: Destination) {
         stopSearching()
+        mainHandler.removeCallbacks(reconnectAttempt)
         host = destination.host
         port = destination.port
         settings.saveDestination(destination.host, destination.port)
+        setSessionWanted(true)
         error = null
         status = ForwardingStatus.CONNECTING
         startForwardingService()
@@ -210,15 +248,51 @@ class Forwarder private constructor(context: Context) {
         // An end event that arrives after a newer connection was started belongs to the old connection.
         when (event.state) {
             LinkState.CONNECTING -> if (server.busy) changeStatus(ForwardingStatus.CONNECTING, error = null)
-            LinkState.CONNECTED -> if (server.busy) changeStatus(ForwardingStatus.CONNECTED, error = null)
+            LinkState.CONNECTED -> if (server.busy) onConnected()
             LinkState.DISCONNECTED -> if (!server.busy) endConnection(error = null)
             LinkState.FAILED -> if (!server.busy) endConnection(error = event.message)
         }
     }
 
+    private fun onConnected() {
+        retryWhenLost = true
+        reconnectStartedAtMs = NOT_RECONNECTING
+        changeStatus(ForwardingStatus.CONNECTED, error = null)
+    }
+
+    /** A lost link is retried while the session is wanted; otherwise, or after giving up, the session ends. */
     private fun endConnection(error: String?) {
+        val shouldRetry = sessionWanted && retryWhenLost
+        if (shouldRetry && !hasGivenUpReconnecting()) {
+            scheduleReconnect(reason = error)
+            return
+        }
+        setSessionWanted(false)
+        retryWhenLost = false
+        reconnectStartedAtMs = NOT_RECONNECTING
+        mainHandler.removeCallbacks(reconnectAttempt)
         stopForwardingService()
-        changeStatus(ForwardingStatus.DISCONNECTED, error)
+        changeStatus(ForwardingStatus.DISCONNECTED, if (shouldRetry) MESSAGE_GAVE_UP else error)
+    }
+
+    private fun scheduleReconnect(reason: String?) {
+        if (reconnectStartedAtMs == NOT_RECONNECTING) reconnectStartedAtMs = SystemClock.elapsedRealtime()
+        mainHandler.removeCallbacks(reconnectAttempt)
+        mainHandler.postDelayed(reconnectAttempt, RECONNECT_DELAY_MS)
+        changeStatus(ForwardingStatus.RECONNECTING, reason)
+    }
+
+    private fun hasGivenUpReconnecting() = reconnectStartedAtMs != NOT_RECONNECTING &&
+        SystemClock.elapsedRealtime() - reconnectStartedAtMs >= RECONNECT_GIVE_UP_MS
+
+    private fun attemptReconnect() {
+        if (!sessionWanted || server.busy) return
+        connectTo(Destination(host, port, "Reconnect"))
+    }
+
+    private fun setSessionWanted(wanted: Boolean) {
+        sessionWanted = wanted
+        settings.sessionWanted = wanted
     }
 
     private fun changeStatus(next: ForwardingStatus, error: String?) {

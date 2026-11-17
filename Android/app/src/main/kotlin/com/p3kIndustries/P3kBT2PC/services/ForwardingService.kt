@@ -78,8 +78,8 @@ class ForwardingService : Service() {
     }
 
     private fun applyForwardingState() {
-        val isConnected = forwarder.snapshot().status == ForwardingStatus.CONNECTED
-        locks.update(isConnected, forwarder.isForwardingController)
+        // Held through reconnect attempts too, so the screen and Wi-Fi are still awake when the link comes back.
+        locks.update(forwarder.isSessionActive, forwarder.keepsScreenAwake)
     }
 
     companion object {

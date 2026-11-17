@@ -38,6 +38,7 @@ installed from an APK, Android first asks you to open **Settings → Apps → P3
 restricted settings**. With it on, forwarding carries on when you leave the app or lock the phone: the lock screen
 stays on at dim brightness so the controller keeps getting through, and a notification lets you disconnect. The
 service only takes controller input while forwarding; at other times the controller works on the phone as normal.
+If the connection drops, or Android stops the app (for example while updating it), the phone reconnects by itself.
 
 Without it, keep the phone app in front while playing.
 

@@ -2,9 +2,9 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="P3k Gamepad over LAN"
-        Width="1020"
-        Height="620"
-        MinWidth="840"
+        Width="826"
+        Height="703"
+        MinWidth="700"
         MinHeight="550"
         Background="#20232B"
         Foreground="#EDF1F7">
@@ -76,8 +76,8 @@
             </WrapPanel>
             <TextBlock x:Name="FirewallStatus" Margin="0,10,0,0" Foreground="#AEBBD0" />
             <TextBlock Foreground="#AEBBD0" Margin="0,12,0,0">
-                The phone shows measured round-trip timing. Input is released if the connection stalls for 500 ms.
-                Keep the phone app in the foreground.
+                The phone shows measured round-trip timing. Input is released if the connection stalls for 500 ms;
+                the phone reconnects by itself. With its accessibility service on, the phone can be locked.
             </TextBlock>
         </StackPanel>
     </ScrollViewer>

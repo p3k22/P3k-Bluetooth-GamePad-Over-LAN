@@ -61,6 +61,7 @@ class StatusPanel(context: Context, onOpenAccessibilitySettings: () -> Unit) : L
         ForwardingStatus.SEARCHING -> "Searching…"
         ForwardingStatus.CONNECTING -> "Connecting…"
         ForwardingStatus.CONNECTED -> "Connected to ${snapshot.host}:${snapshot.port}"
+        ForwardingStatus.RECONNECTING -> "Reconnecting to ${snapshot.host}:${snapshot.port}…"
         ForwardingStatus.DISCONNECTED -> "Disconnected"
     }
 
