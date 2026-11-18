@@ -84,6 +84,6 @@ Release builds are signed only when the environment variable `P3K_SIGNING_SETTIN
 the repo holding `storeFile`, `storePassword`, `keyAlias` and `keyPassword`; otherwise `assembleRelease` produces an
 unsigned APK.
 
-The package remains com.p3kIndustries.P3kBT2PC; version 2.3, protocol v2.
+The package remains com.p3kIndustries.P3kBT2PC; version 2.3.1, protocol v2.
 
 See [PROTOCOL.md](../PROTOCOL.md).
