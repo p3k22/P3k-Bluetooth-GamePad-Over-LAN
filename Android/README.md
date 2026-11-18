@@ -20,7 +20,7 @@ Button transitions are captured synchronously during Android input dispatch and 
 
 The displayed **LAN round trip** uses the phone's monotonic clock and an acknowledgement after Windows submits the virtual gamepad report. Mean and p95 use the last 200 acknowledgements. It includes both network directions and Windows processing; it **does not measure Bluetooth radio, physical switch, game or display latency**. Send-queue delay shows the most recent queued event separately.
 
-For the parts the round trip cannot see, the app writes per-event timing to logcat under the tag `P3kTiming`. Read it with `adb logcat -s P3kTiming`. Each controller event logs its kernel arrival timestamp and when the app received it, so the gaps between timestamps give the controller's Bluetooth report rate, and the difference gives Android's delivery delay. Each sent frame logs its queue delay, and each acknowledgement logs its round trip and the Windows apply time. On a Pixel 8a with a DualShock 4 the controller reported every 11.25 ms and the round trip averaged 7–8 ms.
+For the parts the round trip cannot see, the app writes per-event timing to logcat under the tag `P3kTiming`. Read it with `adb logcat -s P3kTiming`. Each controller event logs its kernel arrival timestamp and when the app received it, so the gaps between timestamps give the controller's Bluetooth report rate, and the difference gives Android's delivery delay. Each sent frame logs its queue delay, and each acknowledgement logs its round trip and the Windows apply time. On a Pixel 8a with a DualShock 4 the controller reported every 11.25 ms and the round trip averaged 7–10 ms.
 
 The app requests unbuffered dispatch for controller input (Android 11+). By default Android holds joystick events until the next display frame; measured on the Pixel 8a, opting out cut Android's stick delivery delay from 12.3 ms to 3.7 ms on average (p95 15.9 ms to 6.3 ms) and button delivery from 10.5 ms to 6.2 ms.
 
@@ -36,8 +36,10 @@ Android only delivers controller input to the focused window, so input from othe
 through `ControllerAccessibilityService`, which the user turns on in **Settings → Accessibility → P3k Gamepad
 controller capture**. Since Android 14 an accessibility service can receive joystick motion (`setMotionEventSources`)
 as well as keys (`FLAG_REQUEST_FILTER_KEY_EVENTS`). It takes controller events only while a Bluetooth controller is
-being forwarded; otherwise it passes keys through and stops requesting motion. Measured on the Pixel 8a, delivery
-through the service averaged 4.1 ms for sticks and buttons. Its per-event timing is logged under the tag `P3kA11y`.
+being forwarded; otherwise it passes keys through and stops requesting motion. Measured on the Pixel 8a, events
+reach the service about 3.3 ms after the kernel receives them (median 2.9 ms) and are sent on about 0.7 ms later.
+Each event is forwarded before its timing line is logged under the tag `P3kA11y`, and the screen/lock state in that
+line is cached from screen broadcasts; querying it per event used to add about 1 ms before forwarding.
 
 Input only arrives while the screen is on. While forwarding a controller, the service holds a screen-dim wake lock so
 the lock screen stays on, dimmed, with the phone still locked. Pressing power turns the screen off and pauses input

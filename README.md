@@ -13,13 +13,13 @@ presses. Routed through a phone, the same controller reports every 11.25 ms.
 
 ## Download
 
-Get both apps from [Releases](../../releases):
+Get both apps from [Releases](../../releases). There is always exactly one Windows and one Android release, the
+current versions:
 
-- **Windows**: `P3k-GamePad-Over-LAN-Windows-v2.0.0.zip`, a self-contained exe for 64-bit Windows 10/11. Nothing else
-  to install except the [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases), which creates the virtual
-  controller.
-- **Android**: `P3k-GamePad-Over-LAN-Android-v2.0.0.apk`, for Android 9 or later. Install it by opening the file on
-  the phone and allowing installs from that source.
+- **Windows receiver**: a zip with a self-contained exe for 64-bit Windows 10/11. Nothing else to install except the
+  [ViGEmBus driver](https://github.com/nefarius/ViGEmBus/releases), which creates the virtual controller.
+- **Android sender**: an APK for Android 9 or later (Android 14 or later to keep forwarding while locked). Install it by
+  opening the file on the phone and allowing installs from that source.
 
 ## Quick start
 
@@ -44,18 +44,20 @@ Without it, keep the phone app in front while playing.
 
 ## Latency
 
-Measured on a Pixel 8a with a DualShock 4, from the controller's report reaching the phone to the virtual pad
-updating on Windows:
+Both apps show live latency measured by the phone. Measured on a Pixel 8a with a DualShock 4, from the controller's
+report reaching the phone to the virtual pad updating on Windows:
 
 | Stage | Average | Worst 5% |
 | --- | --- | --- |
-| Gap between controller reports (phone) | 11.25 ms | ~60–100 ms when a radio slot is missed |
-| Android handing the event to the app | 3.4 ms | 5.9 ms |
-| Phone → PC over Wi-Fi (half the round trip) | ~3.4 ms | ~7 ms |
-| Windows updating the virtual pad | 0.09 ms | 0.15 ms |
+| Phone receives the controller's report and sends it on | ~3.5 ms | ~9 ms |
+| Phone → PC over Wi-Fi (half the round trip) | ~3.5–5 ms | ~9 ms |
+| Windows updating the virtual pad | 0.06–0.09 ms | 0.15 ms |
+| **Controller → PC total** | **~8–12 ms** | |
 
-The phone app opts out of Android's habit of holding controller events until the next screen frame, which alone
-cut about 9 ms. Details and the timing log used for these numbers are in the [Android README](Android/README.md).
+The controller itself reports every 11.25 ms over Bluetooth to the phone, with occasional longer gaps when a radio
+slot is missed. For comparison, direct Bluetooth to the PC this was built for delivered a report only every 60 ms.
+Most of the remaining delay is Wi-Fi: 5 GHz and a nearby router lower it. Details and the timing logs used for these
+numbers are in the [Android README](Android/README.md).
 
 ## Repository layout
 
