@@ -369,13 +369,13 @@ class Forwarder private constructor(context: Context) {
     /** Returns true when the key belonged to the selected gamepad and was forwarded. */
     fun handleKey(event: KeyEvent): Boolean {
         val isController = Device.isController(event.device)
-        if (isController) logRawControllerKey(event)
-        if (touchMode) return false
         // Measured before the state change is sent, so the frame carrying this event includes its delay.
-        if (isController) inputDelay.record(event)
-        if (!device.key(event)) return false
-        InputTimingLog.key(event)
-        return true
+        if (isController && !touchMode) inputDelay.record(event)
+        val isForwarded = !touchMode && device.key(event)
+        // Logging comes after the send so it never delays the input.
+        if (isController) logRawControllerKey(event)
+        if (isForwarded) InputTimingLog.key(event)
+        return isForwarded
     }
 
     /** Returns true when the motion belonged to the selected gamepad (or was already handled from the other path). */

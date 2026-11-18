@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="P3k Gamepad over LAN"
         Width="826"
-        Height="703"
+        Height="733"
         MinWidth="700"
         MinHeight="550"
         Background="#20232B"
